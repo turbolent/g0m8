@@ -1,11 +1,17 @@
 package main
 
 import (
+	"container/list"
 	"log"
 
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
+
+var rectangles = list.New()
+
+const characterCommandCount = 41 * 48
+var characters = [characterCommandCount]DrawCharacterCommand{}
 
 func render(commands <-chan Command, inputs chan<- byte) {
 
@@ -37,7 +43,7 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	if err != nil {
 		panic(err)
 	}
-	font, err := ttf.OpenFont("stealth57.ttf", 15)
+	font, err := ttf.OpenFont("stealth57.ttf", 16)
 	if err != nil {
 		panic(err)
 	}
@@ -104,12 +110,31 @@ func render(commands <-chan Command, inputs chan<- byte) {
 			inputs <- input
 		}
 
-		for i := 0; i < 32; i++ {
+		for i := 0; i < 16; i++ {
 			command, ok := <- commands
 			if !ok {
 				break
 			}
-			draw(command, surface, font, scaleX, scaleY)
+
+			queue(command)
+		}
+
+		_ = surface.FillRect(nil, 0)
+
+		// Draw rectangles
+
+		for e := rectangles.Front(); e != nil; e = e.Next() {
+			command := e.Value.(DrawRectangleCommand)
+			drawRectangle(command, surface, scaleX, scaleY)
+		}
+
+		// Draw characters
+
+		for _, command := range characters {
+			if command.c == 0 {
+				continue
+			}
+			drawCharacter(command, surface, font, scaleX, scaleY)
 		}
 
 		window.UpdateSurface()
@@ -125,6 +150,23 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	}
 }
 
+func queue(command Command) {
+	switch command := command.(type) {
+	case DrawRectangleCommand:
+		rectangles.PushBack(command)
+		if rectangles.Len() >= 128 {
+			rectangles.Remove(rectangles.Front())
+		}
+
+	case DrawCharacterCommand:
+		x := command.pos.x / 8
+		y := command.pos.y / 10
+		index := y * 41 + x
+
+		characters[index] = command
+	}
+}
+
 type glyphCacheKey struct{
 	c byte
 	color Color
@@ -132,60 +174,50 @@ type glyphCacheKey struct{
 
 var glyphCache = map[glyphCacheKey]*sdl.Surface{}
 
-func draw(command Command, surface *sdl.Surface, font *ttf.Font, scaleX, scaleY int32) {
+func drawCharacter(command DrawCharacterCommand, surface *sdl.Surface, font *ttf.Font, scaleX int32, scaleY int32) {
+	var err error
 
-	switch command := command.(type) {
-	case DrawRectangleCommand:
-		color := sdl.MapRGB(
-			surface.Format,
-			command.color.r,
-			command.color.g,
-			command.color.b,
-		)
-		rect := &sdl.Rect{
-			X: int32(command.pos.x) * scaleX,
-			Y: int32(command.pos.y) * scaleY,
-			W: int32(command.size.width) * scaleX,
-			H: int32(command.size.height) * scaleY,
-		}
-		_ = surface.FillRect(rect, color)
-
-	case DrawCharacterCommand:
-		var err error
-
-		cacheKey := glyphCacheKey{
-			c:     command.c,
-			color: command.foreground,
-		}
-		glyph := glyphCache[cacheKey]
-		if glyph == nil {
-			glyph, err = font.RenderUTF8Solid(
-				string([]byte{command.c}),
-				sdl.Color{
-					R: command.foreground.r,
-					G: command.foreground.g,
-					B: command.foreground.b,
-				},
-			)
-			if err != nil {
-				panic(err)
-			}
-			glyphCache[cacheKey] = glyph
-		}
-
-		rect := &sdl.Rect{
-			X: int32(command.pos.x) * scaleX,
-			Y: int32(command.pos.y) * scaleY,
-			W: glyph.H * scaleX,
-			H: glyph.W * scaleY,
-		}
-		background := sdl.MapRGB(
-			surface.Format,
-			command.background.r,
-			command.background.g,
-			command.background.b,
-		)
-		_ = surface.FillRect(rect, background)
-		_ = glyph.Blit(nil, surface, rect)
+	cacheKey := glyphCacheKey{
+		c:     command.c,
+		color: command.foreground,
 	}
+	glyph := glyphCache[cacheKey]
+	if glyph == nil {
+		glyph, err = font.RenderUTF8Solid(
+			string([]byte{command.c}),
+			sdl.Color{
+				R: command.foreground.r,
+				G: command.foreground.g,
+				B: command.foreground.b,
+			},
+		)
+		if err != nil {
+			panic(err)
+		}
+		glyphCache[cacheKey] = glyph
+	}
+
+	rect := &sdl.Rect{
+		X: int32(command.pos.x) * scaleX,
+		Y: int32(command.pos.y) * scaleY,
+		W: glyph.H * scaleX,
+		H: glyph.W * scaleY,
+	}
+	_ = glyph.Blit(nil, surface, rect)
+}
+
+func drawRectangle(command DrawRectangleCommand, surface *sdl.Surface, scaleX int32, scaleY int32) {
+	color := sdl.MapRGB(
+		surface.Format,
+		command.color.r,
+		command.color.g,
+		command.color.b,
+	)
+	rect := &sdl.Rect{
+		X: int32(command.pos.x) * scaleX,
+		Y: int32(command.pos.y) * scaleY - 6,
+		W: int32(command.size.width) * scaleX,
+		H: int32(command.size.height) * scaleY,
+	}
+	_ = surface.FillRect(rect, color)
 }
