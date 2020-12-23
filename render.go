@@ -174,6 +174,8 @@ type glyphCacheKey struct{
 
 var glyphCache = map[glyphCacheKey]*sdl.Surface{}
 
+var renderRect = &sdl.Rect{}
+
 func drawCharacter(command DrawCharacterCommand, surface *sdl.Surface, font *ttf.Font, scaleX int32, scaleY int32) {
 	var err error
 
@@ -197,13 +199,11 @@ func drawCharacter(command DrawCharacterCommand, surface *sdl.Surface, font *ttf
 		glyphCache[cacheKey] = glyph
 	}
 
-	rect := &sdl.Rect{
-		X: int32(command.pos.x) * scaleX,
-		Y: int32(command.pos.y) * scaleY,
-		W: glyph.H * scaleX,
-		H: glyph.W * scaleY,
-	}
-	_ = glyph.Blit(nil, surface, rect)
+	renderRect.X = int32(command.pos.x) * scaleX
+	renderRect.Y = int32(command.pos.y) * scaleY
+	renderRect.W = glyph.H * scaleX
+	renderRect.H = glyph.W * scaleY
+	_ = glyph.Blit(nil, surface, renderRect)
 }
 
 func drawRectangle(command DrawRectangleCommand, surface *sdl.Surface, scaleX int32, scaleY int32) {
@@ -213,11 +213,11 @@ func drawRectangle(command DrawRectangleCommand, surface *sdl.Surface, scaleX in
 		command.color.g,
 		command.color.b,
 	)
-	rect := &sdl.Rect{
-		X: int32(command.pos.x) * scaleX,
-		Y: int32(command.pos.y) * scaleY - 6,
-		W: int32(command.size.width) * scaleX,
-		H: int32(command.size.height) * scaleY,
-	}
-	_ = surface.FillRect(rect, color)
+
+	renderRect.X = int32(command.pos.x) * scaleX
+	renderRect.Y = int32(command.pos.y) * scaleY - 6
+	renderRect.W = int32(command.size.width) * scaleX
+	renderRect.H = int32(command.size.height) * scaleY
+
+	_ = surface.FillRect(renderRect, color)
 }
