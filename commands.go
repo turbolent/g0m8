@@ -101,7 +101,7 @@ func (DrawCharacterCommand) isCommand() {}
 //
 type DrawOscilloscopeWaveformCommand struct {
 	color    Color
-	waveform [320]byte
+	waveform []byte
 }
 
 const drawOscilloscopeWaveformCommand = 0xFC
@@ -186,12 +186,9 @@ func decodeCommand(data []byte) (Command, error) {
 			)
 		}
 
-		waveform := [320]byte{}
-		copy(waveform[:], data[4:])
-
 		return DrawOscilloscopeWaveformCommand{
 			color:    decodeColor(data[1:]),
-			waveform: waveform,
+			waveform: data[4:],
 		}, nil
 
 	case joypadKeyPressedStateCommand:
