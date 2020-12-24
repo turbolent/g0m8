@@ -8,6 +8,16 @@ import (
 
 func TestDecodeSLIP(t *testing.T) {
 
+	t.Run("no packets -> rest", func(t *testing.T) {
+		packets, rest, err := decodeSLIP([]byte{
+			0xA, 0xB,
+		})
+
+		require.NoError(t, err)
+		require.Empty(t, packets)
+		require.Equal(t, []byte{0xA, 0xB}, rest)
+	})
+
 	t.Run("multiple packets and rest", func(t *testing.T) {
 		packets, rest, err := decodeSLIP([]byte{
 			0xA, 0xB, slipEnd,

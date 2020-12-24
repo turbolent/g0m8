@@ -20,7 +20,7 @@ func decodeSLIP(data []byte) (packets [][]byte, rest []byte, err error) {
 	for index, b = range data {
 		switch b {
 		case slipEnd:
-			lastEndIndex = index
+			lastEndIndex = index + 1
 			if len(packet) > 0 {
 				packets = append(packets, packet)
 				packet = nil
@@ -47,5 +47,5 @@ func decodeSLIP(data []byte) (packets [][]byte, rest []byte, err error) {
 		packet = append(packet, b)
 	}
 
-	return packets, data[lastEndIndex+1:], nil
+	return packets, data[lastEndIndex:], nil
 }
