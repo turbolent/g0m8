@@ -17,6 +17,12 @@ var waveform DrawOscilloscopeWaveformCommand
 
 func render(commands <-chan Command, inputs chan<- byte) {
 
+	go func() {
+		for {
+			queue(<-commands)
+		}
+	}()
+
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
 	}
@@ -29,17 +35,18 @@ func render(commands <-chan Command, inputs chan<- byte) {
 		"M8",
 		sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED,
 		windowWidth, windowHeight,
-		sdl.WINDOW_SHOWN|sdl.WINDOW_ALLOW_HIGHDPI,
+		sdl.WINDOW_SHOWN,
 	)
 	if err != nil {
 		panic(err)
 	}
 	defer window.Destroy()
 
-	drawableWidth, drawableHeight := window.GLGetDrawableSize()
-
-	scaleX := drawableWidth / windowWidth
-	scaleY := drawableHeight / windowHeight
+	renderer, err := sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED | sdl.RENDERER_PRESENTVSYNC)
+	if err != nil {
+		panic(err)
+	}
+	defer renderer.Destroy()
 
 	err = ttf.Init()
 	if err != nil {
@@ -53,20 +60,12 @@ func render(commands <-chan Command, inputs chan<- byte) {
 		font.Close()
 
 		for _, glyph := range glyphCache {
-			glyph.Free()
+			_ = glyph.texture.Destroy()
 		}
 	}()
 
-	surface, err := window.GetSurface()
-	if err != nil {
-		panic(err)
-	}
-
-	_ = surface.FillRect(nil, 0)
-	_ = window.UpdateSurface()
-
 	frameCount := 0
-	time := sdl.GetTicks()
+	ticks := sdl.GetTicks()
 
 	var input uint8
 
@@ -112,26 +111,18 @@ func render(commands <-chan Command, inputs chan<- byte) {
 			inputs <- input
 		}
 
-		for i := 0; i < 16; i++ {
-			command, ok := <-commands
-			if !ok {
-				break
-			}
-
-			queue(command)
-		}
-
-		_ = surface.FillRect(nil, 0)
+		_ = renderer.SetDrawColor(0, 0, 0, 255)
+		_ = renderer.Clear()
 
 		// Draw rectangles
 
 		for e := rectangles.Front(); e != nil; e = e.Next() {
 			command := e.Value.(DrawRectangleCommand)
-			drawRectangle(command, surface, scaleX, scaleY)
+			drawRectangle(command, renderer)
 		}
 
 		// Draw waveform
-		drawWaveform(waveform, surface, scaleX, scaleY)
+		drawWaveform(waveform, renderer)
 
 		// Draw characters
 
@@ -139,16 +130,16 @@ func render(commands <-chan Command, inputs chan<- byte) {
 			if command.c == 0 {
 				continue
 			}
-			drawCharacter(command, surface, font, scaleX, scaleY)
+			drawCharacter(command, renderer, font)
 		}
 
-		window.UpdateSurface()
+		renderer.Present()
 
 		// Determine when one second has passed
-		if sdl.GetTicks()-time > 1000 {
-			//log.Printf("FPS: %d", frameCount);
+		if sdl.GetTicks()-ticks > 1000 {
+			//log.Printf("FPS: %d", frameCount)
 			frameCount = 0
-			time = sdl.GetTicks()
+			ticks = sdl.GetTicks()
 		} else {
 			frameCount++
 		}
@@ -180,20 +171,24 @@ type glyphCacheKey struct {
 	color Color
 }
 
-var glyphCache = map[glyphCacheKey]*sdl.Surface{}
+type glyph struct {
+	texture *sdl.Texture
+	width   int32
+	height  int32
+}
+
+var glyphCache = map[glyphCacheKey]*glyph{}
 
 var renderRect = &sdl.Rect{}
 
-func drawCharacter(command DrawCharacterCommand, surface *sdl.Surface, font *ttf.Font, scaleX int32, scaleY int32) {
-	var err error
-
+func drawCharacter(command DrawCharacterCommand, renderer *sdl.Renderer, font *ttf.Font) {
 	cacheKey := glyphCacheKey{
 		c:     command.c,
 		color: command.foreground,
 	}
-	glyph := glyphCache[cacheKey]
-	if glyph == nil {
-		glyph, err = font.RenderUTF8Solid(
+	g := glyphCache[cacheKey]
+	if g == nil {
+		glyphSurface, err := font.RenderUTF8Solid(
 			string([]byte{command.c}),
 			sdl.Color{
 				R: command.foreground.r,
@@ -204,45 +199,56 @@ func drawCharacter(command DrawCharacterCommand, surface *sdl.Surface, font *ttf
 		if err != nil {
 			panic(err)
 		}
-		glyphCache[cacheKey] = glyph
+		texture, _ := renderer.CreateTextureFromSurface(glyphSurface)
+		g = &glyph{
+			texture: texture,
+			width: glyphSurface.W,
+			height: glyphSurface.H,
+		}
+		glyphCache[cacheKey] = g
+		glyphSurface.Free()
 	}
 
-	renderRect.X = int32(command.pos.x) * scaleX
-	renderRect.Y = int32(command.pos.y) * scaleY
-	renderRect.W = glyph.H * scaleX
-	renderRect.H = glyph.W * scaleY
-	_ = glyph.Blit(nil, surface, renderRect)
+	renderRect.X = int32(command.pos.x) * 2
+	renderRect.Y = int32(command.pos.y) * 2
+	renderRect.W = g.width
+	renderRect.H = g.height
+	_ = renderer.Copy(g.texture, nil, renderRect)
 }
 
-func drawRectangle(command DrawRectangleCommand, surface *sdl.Surface, scaleX int32, scaleY int32) {
+func drawRectangle(command DrawRectangleCommand, renderer *sdl.Renderer) {
 
-	renderRect.X = int32(command.pos.x) * scaleX
-	renderRect.Y = int32(command.pos.y)*scaleY - 6
-	renderRect.W = int32(command.size.width) * scaleX
-	renderRect.H = int32(command.size.height) * scaleY
-
-	_ = surface.FillRect(renderRect, sdl.MapRGB(
-		surface.Format,
+	_ = renderer.SetDrawColor(
 		command.color.r,
 		command.color.g,
 		command.color.b,
-	))
+		255,
+	)
+
+	renderRect.X = int32(command.pos.x) * 2
+	renderRect.Y = int32(command.pos.y) * 2 - 6
+	renderRect.W = int32(command.size.width) * 2
+	renderRect.H = int32(command.size.height) * 2
+
+	_ = renderer.FillRect(renderRect)
 }
 
-func drawWaveform(command DrawOscilloscopeWaveformCommand, surface *sdl.Surface, scaleX int32, scaleY int32) {
+func drawWaveform(command DrawOscilloscopeWaveformCommand, renderer *sdl.Renderer) {
+
+	_ = renderer.SetDrawColor(
+		command.color.r,
+		command.color.g,
+		command.color.b,
+		255,
+	)
 
 	for x, y := range waveform.waveform {
 
-		renderRect.X = int32(x) * scaleX
-		renderRect.Y = int32(y) * scaleY
-		renderRect.W = scaleX
-		renderRect.H = scaleY
+		renderRect.X = int32(x) * 2
+		renderRect.Y = int32(y) * 2
+		renderRect.W = 2
+		renderRect.H = 2
 
-		_ = surface.FillRect(renderRect, sdl.MapRGB(
-			surface.Format,
-			command.color.r,
-			command.color.g,
-			command.color.b,
-		))
+		_ = renderer.FillRect(renderRect)
 	}
 }

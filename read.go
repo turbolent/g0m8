@@ -10,7 +10,7 @@ func read(port serial.Port, commands chan<- Command) {
 
 	log.Printf("Reading ...\n")
 
-	buf := make([]byte, 2048)
+	buf := make([]byte, 1024)
 	readStartIndex := 0
 
 	for {
