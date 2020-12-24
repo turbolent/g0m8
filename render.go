@@ -98,13 +98,13 @@ func render(commands <-chan Command, inputs chan<- byte) {
 				key = keyUp
 			case sdl.K_DOWN:
 				key = keyDown
-			case sdl.K_x:
+			case sdl.K_x, sdl.K_m:
 				key = keyEdit
-			case sdl.K_z:
+			case sdl.K_z, sdl.K_n:
 				key = keyOpt
 			case sdl.K_SPACE:
 				key = keyStart
-			case sdl.K_LSHIFT:
+			case sdl.K_LSHIFT, sdl.K_RSHIFT:
 				key = keySelect
 			}
 
