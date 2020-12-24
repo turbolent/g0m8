@@ -61,4 +61,3 @@ func openSerialPort(device string) serial.Port {
 	}
 	return port
 }
-

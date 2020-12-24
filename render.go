@@ -2,7 +2,6 @@ package main
 
 import (
 	"container/list"
-	"log"
 
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -11,7 +10,10 @@ import (
 var rectangles = list.New()
 
 const characterCommandCount = 41 * 48
+
 var characters = [characterCommandCount]DrawCharacterCommand{}
+
+var waveform DrawOscilloscopeWaveformCommand
 
 func render(commands <-chan Command, inputs chan<- byte) {
 
@@ -27,7 +29,7 @@ func render(commands <-chan Command, inputs chan<- byte) {
 		"M8",
 		sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED,
 		windowWidth, windowHeight,
-		sdl.WINDOW_SHOWN | sdl.WINDOW_ALLOW_HIGHDPI,
+		sdl.WINDOW_SHOWN|sdl.WINDOW_ALLOW_HIGHDPI,
 	)
 	if err != nil {
 		panic(err)
@@ -111,7 +113,7 @@ func render(commands <-chan Command, inputs chan<- byte) {
 		}
 
 		for i := 0; i < 16; i++ {
-			command, ok := <- commands
+			command, ok := <-commands
 			if !ok {
 				break
 			}
@@ -128,6 +130,9 @@ func render(commands <-chan Command, inputs chan<- byte) {
 			drawRectangle(command, surface, scaleX, scaleY)
 		}
 
+		// Draw waveform
+		drawWaveform(waveform, surface, scaleX, scaleY)
+
 		// Draw characters
 
 		for _, command := range characters {
@@ -140,8 +145,8 @@ func render(commands <-chan Command, inputs chan<- byte) {
 		window.UpdateSurface()
 
 		// Determine when one second has passed
-		if sdl.GetTicks() - time > 1000 {
-			log.Printf("FPS: %d", frameCount);
+		if sdl.GetTicks()-time > 1000 {
+			//log.Printf("FPS: %d", frameCount);
 			frameCount = 0
 			time = sdl.GetTicks()
 		} else {
@@ -154,21 +159,24 @@ func queue(command Command) {
 	switch command := command.(type) {
 	case DrawRectangleCommand:
 		rectangles.PushBack(command)
-		if rectangles.Len() >= 128 {
+		if rectangles.Len() >= 1024 {
 			rectangles.Remove(rectangles.Front())
 		}
 
 	case DrawCharacterCommand:
 		x := command.pos.x / 8
 		y := command.pos.y / 10
-		index := y * 41 + x
+		index := y*41 + x
 
 		characters[index] = command
+
+	case DrawOscilloscopeWaveformCommand:
+		waveform = command
 	}
 }
 
-type glyphCacheKey struct{
-	c byte
+type glyphCacheKey struct {
+	c     byte
 	color Color
 }
 
@@ -207,17 +215,34 @@ func drawCharacter(command DrawCharacterCommand, surface *sdl.Surface, font *ttf
 }
 
 func drawRectangle(command DrawRectangleCommand, surface *sdl.Surface, scaleX int32, scaleY int32) {
-	color := sdl.MapRGB(
+
+	renderRect.X = int32(command.pos.x) * scaleX
+	renderRect.Y = int32(command.pos.y)*scaleY - 6
+	renderRect.W = int32(command.size.width) * scaleX
+	renderRect.H = int32(command.size.height) * scaleY
+
+	_ = surface.FillRect(renderRect, sdl.MapRGB(
 		surface.Format,
 		command.color.r,
 		command.color.g,
 		command.color.b,
-	)
+	))
+}
 
-	renderRect.X = int32(command.pos.x) * scaleX
-	renderRect.Y = int32(command.pos.y) * scaleY - 6
-	renderRect.W = int32(command.size.width) * scaleX
-	renderRect.H = int32(command.size.height) * scaleY
+func drawWaveform(command DrawOscilloscopeWaveformCommand, surface *sdl.Surface, scaleX int32, scaleY int32) {
 
-	_ = surface.FillRect(renderRect, color)
+	for x, y := range waveform.waveform {
+
+		renderRect.X = int32(x) * scaleX
+		renderRect.Y = int32(y) * scaleY
+		renderRect.W = scaleX
+		renderRect.H = scaleY
+
+		_ = surface.FillRect(renderRect, sdl.MapRGB(
+			surface.Format,
+			command.color.r,
+			command.color.g,
+			command.color.b,
+		))
+	}
 }

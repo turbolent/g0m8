@@ -49,4 +49,3 @@ func decodeSLIP(data []byte) (packets [][]byte, rest []byte, err error) {
 
 	return packets, data[lastEndIndex+1:], nil
 }
-

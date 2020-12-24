@@ -68,4 +68,3 @@ func disconnect(port serial.Port) {
 		log.Fatalf("failed to disconnect")
 	}
 }
-

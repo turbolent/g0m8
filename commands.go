@@ -37,7 +37,7 @@ func decodePosition(data []byte) Position {
 // Size
 //
 type Size struct {
-	width int16
+	width  int16
 	height int16
 }
 
@@ -72,9 +72,9 @@ type Command interface {
 
 // DrawRectangleCommand
 //
-type DrawRectangleCommand struct{
-	pos Position
-	size Size
+type DrawRectangleCommand struct {
+	pos   Position
+	size  Size
 	color Color
 }
 
@@ -85,9 +85,9 @@ func (DrawRectangleCommand) isCommand() {}
 
 // DrawCharacterCommand
 //
-type DrawCharacterCommand struct{
-	c byte
-	pos Position
+type DrawCharacterCommand struct {
+	c          byte
+	pos        Position
 	foreground Color
 	background Color
 }
@@ -100,8 +100,8 @@ func (DrawCharacterCommand) isCommand() {}
 // DrawOscilloscopeWaveformCommand
 //
 type DrawOscilloscopeWaveformCommand struct {
-	color Color
-	waveform []byte
+	color    Color
+	waveform [320]byte
 }
 
 const drawOscilloscopeWaveformCommand = 0xFC
@@ -109,7 +109,6 @@ const drawOscilloscopeWaveformCommandMinDataLength = 1 + 3
 const drawOscilloscopeWaveformCommandMaxDataLength = 1 + 3 + 320
 
 func (DrawOscilloscopeWaveformCommand) isCommand() {}
-
 
 // JoypadKeyPressedStateCommand
 //
@@ -141,8 +140,8 @@ func decodeCommand(data []byte) (Command, error) {
 			)
 		}
 		return DrawCharacterCommand{
-			c: data[1],
-			pos:   decodePosition(data[2:]),
+			c:          data[1],
+			pos:        decodePosition(data[2:]),
 			foreground: decodeColor(data[6:]),
 			background: decodeColor(data[9:]),
 		}, nil
@@ -157,7 +156,7 @@ func decodeCommand(data []byte) (Command, error) {
 		}
 		return DrawRectangleCommand{
 			pos:   decodePosition(data[1:]),
-			size: decodeSize(data[5:]),
+			size:  decodeSize(data[5:]),
 			color: decodeColor(data[9:]),
 		}, nil
 
@@ -179,9 +178,12 @@ func decodeCommand(data []byte) (Command, error) {
 			)
 		}
 
+		waveform := [320]byte{}
+		copy(waveform[:], data[4:])
+
 		return DrawOscilloscopeWaveformCommand{
 			color:    decodeColor(data[1:]),
-			waveform: data[4:],
+			waveform: waveform,
 		}, nil
 
 	case joypadKeyPressedStateCommand:

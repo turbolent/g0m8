@@ -13,7 +13,7 @@ func TestDecodeCommand(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t,
 			DrawRectangleCommand{
-				pos:  Position{
+				pos: Position{
 					x: 513,
 					y: 1027,
 				},
@@ -37,7 +37,7 @@ func TestDecodeCommand(t *testing.T) {
 		require.Equal(t,
 			DrawCharacterCommand{
 				c: 0x1,
-				pos:  Position{
+				pos: Position{
 					x: 770,
 					y: 1284,
 				},
@@ -98,7 +98,7 @@ func TestDecodeCommand(t *testing.T) {
 			0x40, 0x41, 0x42, 0x43,
 		}
 
-		packet :=[]byte{0xFC, 0x1, 0x2, 0x03}
+		packet := []byte{0xFC, 0x1, 0x2, 0x03}
 		packet = append(packet, waveform...)
 
 		command, err := decodeCommand(packet)
