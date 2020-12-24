@@ -29,7 +29,7 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	defer sdl.Quit()
 
 	const windowWidth = 640
-	const windowHeight = 480
+	const windowHeight = 460
 
 	window, err := sdl.CreateWindow(
 		"M8",
@@ -47,6 +47,17 @@ func render(commands <-chan Command, inputs chan<- byte) {
 		panic(err)
 	}
 	defer renderer.Destroy()
+
+	format, err := window.GetPixelFormat()
+	if err != nil {
+		panic(err)
+	}
+
+	background, err := renderer.CreateTexture(format, sdl.TEXTUREACCESS_TARGET, windowWidth, windowHeight)
+	if err != nil {
+		panic(err)
+	}
+	defer background.Destroy()
 
 	err = ttf.Init()
 	if err != nil {
@@ -116,10 +127,15 @@ func render(commands <-chan Command, inputs chan<- byte) {
 
 		// Draw rectangles
 
+		_ = renderer.SetRenderTarget(background)
+
 		for e := rectangles.Front(); e != nil; e = e.Next() {
 			command := e.Value.(DrawRectangleCommand)
 			drawRectangle(command, renderer)
 		}
+
+		_ = renderer.SetRenderTarget(nil)
+		_ = renderer.Copy(background, nil, nil)
 
 		// Draw waveform
 		drawWaveform(waveform, renderer)
