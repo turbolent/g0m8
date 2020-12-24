@@ -2,11 +2,10 @@ package main
 
 import (
 	"log"
-
-	"go.bug.st/serial"
+	"os"
 )
 
-func read(port serial.Port, commands chan<- Command) {
+func read(port *os.File, commands chan<- Command) {
 
 	log.Printf("Reading ...\n")
 
@@ -46,18 +45,4 @@ func read(port serial.Port, commands chan<- Command) {
 		readStartIndex = len(remaining)
 		copy(buf[:], remaining)
 	}
-}
-
-func openSerialPort(device string) serial.Port {
-	port, err := serial.Open(
-		device,
-		&serial.Mode{
-			BaudRate: 115200,
-			DataBits: 8,
-		},
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return port
 }

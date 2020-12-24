@@ -10,8 +10,7 @@ package main
 
 import (
 	"log"
-
-	"go.bug.st/serial"
+	"os"
 )
 
 const keyLeft = 0b10000000
@@ -23,13 +22,13 @@ const keyRight = 0b00000100
 const keyOpt = 0b00000010
 const keyEdit = 0b00000001
 
-func sendInput(port serial.Port, input <-chan byte) {
+func sendInput(port *os.File, input <-chan byte) {
 	for b := range input {
 		sendKey(port, b)
 	}
 }
 
-func sendKey(port serial.Port, b byte) {
+func sendKey(port *os.File, b byte) {
 	bytes := []byte{'C', b}
 	n, err := port.Write(bytes)
 	if err != nil {
@@ -41,7 +40,7 @@ func sendKey(port serial.Port, b byte) {
 	}
 }
 
-func enableAndResetDisplay(port serial.Port) {
+func enableAndResetDisplay(port *os.File) {
 	log.Printf("Enabling and resetting display ...\n")
 
 	bytes := []byte{'E', 'R'}
@@ -55,7 +54,7 @@ func enableAndResetDisplay(port serial.Port) {
 	}
 }
 
-func disconnect(port serial.Port) {
+func disconnect(port *os.File) {
 	log.Printf("Disconnecting ...\n")
 
 	bytes := []byte{'D'}
