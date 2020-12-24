@@ -121,6 +121,14 @@ const joypadKeyPressedStateCommandDataLength = 2
 
 func (JoypadKeyPressedStateCommand) isCommand() {}
 
+type unknownCommandError struct {
+	command byte
+}
+
+func (e unknownCommandError) Error() string {
+	return fmt.Sprintf("unknown command byte: 0x%x", e.command)
+}
+
 // decodeCommand decodes the given M8 SLIP command packet
 //
 func decodeCommand(data []byte) (Command, error) {
@@ -199,6 +207,6 @@ func decodeCommand(data []byte) (Command, error) {
 		}, nil
 
 	default:
-		return nil, fmt.Errorf("unknown command byte: 0x%x", commandByte)
+		return nil, unknownCommandError{commandByte}
 	}
 }

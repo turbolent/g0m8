@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"log"
 	"os"
 )
@@ -9,7 +10,7 @@ func read(port *os.File, commands chan<- Command) {
 
 	log.Printf("Reading ...\n")
 
-	buf := make([]byte, 1024)
+	buf := make([]byte, 4*1024)
 	readStartIndex := 0
 
 	for {
@@ -22,7 +23,9 @@ func read(port *os.File, commands chan<- Command) {
 
 		// Read the raw data as a SLIP packets
 
-		packets, remaining, err := decodeSLIP(buf[:readStartIndex+n])
+		data := buf[:readStartIndex+n]
+
+		packets, remaining, err := decodeSLIP(data)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -33,7 +36,13 @@ func read(port *os.File, commands chan<- Command) {
 
 			command, err := decodeCommand(packet)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
+				log.Println("data:", hex.Dump(data))
+				log.Println("packet:", hex.Dump(packet))
+				if _, ok := err.(unknownCommandError); ok {
+					continue
+				}
+				os.Exit(1)
 			}
 
 			commands <- command
