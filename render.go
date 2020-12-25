@@ -9,7 +9,8 @@ import (
 
 var rectangles = list.New()
 
-const characterCommandCount = 41 * 48
+const charactersPerRow = 41
+const characterCommandCount = charactersPerRow * 48
 
 var characters = [characterCommandCount]DrawCharacterCommand{}
 
@@ -47,6 +48,7 @@ func render(commands <-chan Command, inputs chan<- byte) {
 		panic(err)
 	}
 	defer renderer.Destroy()
+	_ = renderer.SetDrawBlendMode(sdl.BLENDMODE_BLEND)
 
 	format, err := window.GetPixelFormat()
 	if err != nil {
@@ -58,6 +60,13 @@ func render(commands <-chan Command, inputs chan<- byte) {
 		panic(err)
 	}
 	defer background.Destroy()
+
+	overlay, err := renderer.CreateTexture(format, sdl.TEXTUREACCESS_TARGET, windowWidth, windowHeight)
+	if err != nil {
+		panic(err)
+	}
+	defer overlay.Destroy()
+	_ = overlay.SetBlendMode(sdl.BLENDMODE_BLEND)
 
 	err = ttf.Init()
 	if err != nil {
@@ -80,6 +89,8 @@ func render(commands <-chan Command, inputs chan<- byte) {
 
 	var input uint8
 
+	fullScreen := false
+
 	for {
 		event := sdl.PollEvent()
 		switch event := event.(type) {
@@ -87,6 +98,25 @@ func render(commands <-chan Command, inputs chan<- byte) {
 			return
 
 		case *sdl.KeyboardEvent:
+			if event.Type == sdl.KEYUP {
+				if event.Keysym.Sym == sdl.K_RETURN &&
+					event.Keysym.Mod&sdl.KMOD_ALT > 0 {
+
+					var flags uint32
+					if !fullScreen {
+						flags = sdl.WINDOW_FULLSCREEN_DESKTOP
+					}
+					_ = window.SetFullscreen(flags)
+					fullScreen = !fullScreen
+
+					break
+				}
+
+				if event.Keysym.Sym == sdl.K_q {
+					return
+				}
+			}
+
 			var key uint8
 
 			switch event.Keysym.Sym {
@@ -137,7 +167,12 @@ func render(commands <-chan Command, inputs chan<- byte) {
 		_ = renderer.SetRenderTarget(nil)
 		_ = renderer.Copy(background, nil, nil)
 
-		// Draw waveform
+		// Draw overlay: waveform and characters
+
+		_ = renderer.SetRenderTarget(overlay)
+		_ = renderer.SetDrawColor(0, 0, 0, 0)
+		_ = renderer.Clear()
+
 		drawWaveform(waveform, renderer)
 
 		// Draw characters
@@ -148,6 +183,9 @@ func render(commands <-chan Command, inputs chan<- byte) {
 			}
 			drawCharacter(command, renderer, font)
 		}
+
+		_ = renderer.SetRenderTarget(nil)
+		_ = renderer.Copy(overlay, nil, nil)
 
 		renderer.Present()
 
@@ -173,7 +211,7 @@ func queue(command Command) {
 	case DrawCharacterCommand:
 		x := command.pos.x / 8
 		y := command.pos.y / 10
-		index := y*41 + x
+		index := y*charactersPerRow + x
 
 		characters[index] = command
 
