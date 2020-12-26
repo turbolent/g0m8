@@ -2,6 +2,7 @@ package main
 
 import (
 	"container/list"
+	"log"
 
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -120,13 +121,13 @@ func render(commands <-chan Command, inputs chan<- byte) {
 			var key uint8
 
 			switch event.Keysym.Sym {
-			case sdl.K_RIGHT:
+			case sdl.K_RIGHT, sdl.K_KP_6:
 				key = keyRight
-			case sdl.K_LEFT:
+			case sdl.K_LEFT, sdl.K_KP_4:
 				key = keyLeft
-			case sdl.K_UP:
+			case sdl.K_UP, sdl.K_KP_8:
 				key = keyUp
-			case sdl.K_DOWN:
+			case sdl.K_DOWN, sdl.K_KP_2:
 				key = keyDown
 			case sdl.K_x, sdl.K_m:
 				key = keyEdit
@@ -136,6 +137,8 @@ func render(commands <-chan Command, inputs chan<- byte) {
 				key = keyStart
 			case sdl.K_LSHIFT, sdl.K_RSHIFT:
 				key = keySelect
+			default:
+				log.Printf("unknown key: %v", event.Keysym.Sym)
 			}
 
 			if key == 0 {
