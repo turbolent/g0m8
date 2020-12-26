@@ -13,14 +13,14 @@ import (
 	"os"
 )
 
-const keyLeft = 0b10000000
-const keyUp = 0b01000000
-const keyDown = 0b00100000
-const keySelect = 0b00010000
-const keyStart = 0b00001000
-const keyRight = 0b00000100
-const keyOpt = 0b00000010
-const keyEdit = 0b00000001
+const keyLeft = 1 << 7
+const keyUp = 1 << 6
+const keyDown = 1 << 5
+const keySelect = 1 << 4
+const keyStart = 1 << 3
+const keyRight = 1 << 2
+const keyOpt = 1 << 1
+const keyEdit = 1
 
 func sendInput(port *os.File, input <-chan byte) {
 	for b := range input {

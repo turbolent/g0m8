@@ -149,7 +149,7 @@ func render(commands <-chan Command, inputs chan<- byte) {
 				input |= key
 			} else {
 				// Go does not have a bitwise negation operator
-				input &= 0b11111111 ^ key
+				input &= 255 ^ key
 			}
 
 			inputs <- input
