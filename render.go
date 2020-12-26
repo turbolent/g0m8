@@ -2,11 +2,15 @@ package main
 
 import (
 	"container/list"
+	"flag"
 	"log"
 
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
+
+var widthFlag = flag.Int("width", 640, "connect to given device")
+var heightFlag = flag.Int("height", 460, "enable debug logging")
 
 var rectangles = list.New()
 
@@ -16,6 +20,9 @@ const characterCommandCount = charactersPerRow * 48
 var characters = [characterCommandCount]DrawCharacterCommand{}
 
 var waveform DrawOscilloscopeWaveformCommand
+
+var scaleX int32
+var scaleY int32
 
 func render(commands <-chan Command, inputs chan<- byte) {
 
@@ -30,8 +37,11 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	}
 	defer sdl.Quit()
 
-	const windowWidth = 640
-	const windowHeight = 460
+	windowWidth := int32(*widthFlag)
+	windowHeight := int32(*heightFlag)
+
+	scaleX = windowWidth / 320
+	scaleY = windowHeight / 230
 
 	window, err := sdl.CreateWindow(
 		"M8",
@@ -73,7 +83,7 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	if err != nil {
 		panic(err)
 	}
-	font, err := ttf.OpenFont("stealth57.ttf", 16)
+	font, err := ttf.OpenFont("stealth57.ttf", 8)
 	if err != nil {
 		panic(err)
 	}
@@ -266,10 +276,10 @@ func drawCharacter(command DrawCharacterCommand, renderer *sdl.Renderer, font *t
 		glyphSurface.Free()
 	}
 
-	renderRect.X = int32(command.pos.x) * 2
-	renderRect.Y = int32(command.pos.y) * 2
-	renderRect.W = g.width
-	renderRect.H = g.height
+	renderRect.X = int32(command.pos.x) * scaleX
+	renderRect.Y = int32(command.pos.y) * scaleY
+	renderRect.W = g.width * scaleX
+	renderRect.H = g.height * scaleY
 	_ = renderer.Copy(g.texture, nil, renderRect)
 }
 
@@ -282,10 +292,10 @@ func drawRectangle(command DrawRectangleCommand, renderer *sdl.Renderer) {
 		255,
 	)
 
-	renderRect.X = int32(command.pos.x) * 2
-	renderRect.Y = int32(command.pos.y) * 2 - 6
-	renderRect.W = int32(command.size.width) * 2
-	renderRect.H = int32(command.size.height) * 2
+	renderRect.X = int32(command.pos.x) * scaleX
+	renderRect.Y = int32(command.pos.y) * scaleY - scaleY * 3
+	renderRect.W = int32(command.size.width) * scaleX
+	renderRect.H = int32(command.size.height) * scaleY
 
 	_ = renderer.FillRect(renderRect)
 }
@@ -301,10 +311,10 @@ func drawWaveform(command DrawOscilloscopeWaveformCommand, renderer *sdl.Rendere
 
 	for x, y := range waveform.waveform {
 
-		renderRect.X = int32(x) * 2
-		renderRect.Y = int32(y) * 2
-		renderRect.W = 2
-		renderRect.H = 2
+		renderRect.X = int32(x) * scaleX
+		renderRect.Y = int32(y) * scaleY
+		renderRect.W = scaleX
+		renderRect.H = scaleY
 
 		_ = renderer.FillRect(renderRect)
 	}
