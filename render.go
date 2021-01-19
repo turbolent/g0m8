@@ -9,8 +9,8 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 )
 
-var widthFlag = flag.Int("width", 640, "connect to given device")
-var heightFlag = flag.Int("height", 460, "enable debug logging")
+var widthFlag = flag.Int("width", 640, "width of the window")
+var heightFlag = flag.Int("height", 460, "height of the window")
 
 var rectangles = list.New()
 
