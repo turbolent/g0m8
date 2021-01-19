@@ -61,18 +61,13 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	defer renderer.Destroy()
 	_ = renderer.SetDrawBlendMode(sdl.BLENDMODE_BLEND)
 
-	format, err := window.GetPixelFormat()
-	if err != nil {
-		panic(err)
-	}
-
-	background, err := renderer.CreateTexture(format, sdl.TEXTUREACCESS_TARGET, windowWidth, windowHeight)
+	background, err := renderer.CreateTexture(sdl.PIXELFORMAT_ARGB8888, sdl.TEXTUREACCESS_TARGET, windowWidth, windowHeight)
 	if err != nil {
 		panic(err)
 	}
 	defer background.Destroy()
 
-	overlay, err := renderer.CreateTexture(format, sdl.TEXTUREACCESS_TARGET, windowWidth, windowHeight)
+	overlay, err := renderer.CreateTexture(sdl.PIXELFORMAT_ABGR8888, sdl.TEXTUREACCESS_TARGET, windowWidth, windowHeight)
 	if err != nil {
 		panic(err)
 	}
