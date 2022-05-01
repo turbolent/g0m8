@@ -78,7 +78,7 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	if err != nil {
 		panic(err)
 	}
-	font, err := ttf.OpenFont("stealth57.ttf", 8)
+	font, err := ttf.OpenFont("m8stealth57.ttf", 8)
 	if err != nil {
 		panic(err)
 	}
