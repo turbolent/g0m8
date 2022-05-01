@@ -117,7 +117,7 @@ type JoypadKeyPressedStateCommand struct {
 }
 
 const joypadKeyPressedStateCommand = 0xFB
-const joypadKeyPressedStateCommandDataLength = 2
+const joypadKeyPressedStateCommandDataLength = 3
 
 func (JoypadKeyPressedStateCommand) isCommand() {}
 
