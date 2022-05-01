@@ -63,13 +63,13 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	defer renderer.Destroy()
 	_ = renderer.SetDrawBlendMode(sdl.BLENDMODE_BLEND)
 
-	background, err := renderer.CreateTexture(sdl.PIXELFORMAT_ARGB8888, sdl.TEXTUREACCESS_TARGET, windowWidth, windowHeight)
+	background, err := createTexture(renderer, windowWidth, windowHeight)
 	if err != nil {
 		panic(err)
 	}
 	defer background.Destroy()
 
-	overlay, err := renderer.CreateTexture(sdl.PIXELFORMAT_ABGR8888, sdl.TEXTUREACCESS_TARGET, windowWidth, windowHeight)
+	overlay, err := createTexture(renderer, windowWidth, windowHeight)
 	if err != nil {
 		panic(err)
 	}
@@ -207,6 +207,15 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	}
 }
 
+func createTexture(renderer *sdl.Renderer, width int32, height int32) (*sdl.Texture, error) {
+	return renderer.CreateTexture(
+		sdl.PIXELFORMAT_ARGB8888,
+		sdl.TEXTUREACCESS_TARGET,
+		width,
+		height,
+	)
+}
+
 func queue(command Command) {
 	switch command := command.(type) {
 	case DrawRectangleCommand:
@@ -250,7 +259,7 @@ func drawCharacter(command DrawCharacterCommand, renderer *sdl.Renderer, font *t
 	g := glyphCache[cacheKey]
 	if g.texture == nil {
 		glyphSurface, err := font.RenderUTF8Solid(
-			string([]byte{command.c}),
+			string(command.c),
 			sdl.Color{
 				R: command.foreground.r,
 				G: command.foreground.g,
