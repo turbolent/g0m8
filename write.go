@@ -28,42 +28,47 @@ func sendInput(port *os.File, input <-chan byte) {
 	}
 }
 
+var sendKeyCommand = []byte{'C', 0}
+
 func sendKey(port *os.File, b byte) {
-	bytes := []byte{'C', b}
-	n, err := port.Write(bytes)
+	sendKeyCommand[1] = b
+
+	n, err := port.Write(sendKeyCommand)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if n != len(bytes) {
+	if n != len(sendKeyCommand) {
 		log.Fatalf("failed to write input: %016b\n", b)
 	}
 }
 
+var enableAndResetDisplayCommand = []byte{'E', 'R'}
+
 func enableAndResetDisplay(port *os.File) {
 	log.Printf("Enabling and resetting display ...\n")
 
-	bytes := []byte{'E', 'R'}
-	n, err := port.Write(bytes)
+	n, err := port.Write(enableAndResetDisplayCommand)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if n != len(bytes) {
+	if n != len(enableAndResetDisplayCommand) {
 		log.Fatalf("failed to enable and reset display")
 	}
 }
 
+var disconnectCommand = []byte{'D'}
+
 func disconnect(port *os.File) {
 	log.Printf("Disconnecting ...\n")
 
-	bytes := []byte{'D'}
-	n, err := port.Write(bytes)
+	n, err := port.Write(disconnectCommand)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if n != len(bytes) {
+	if n != len(disconnectCommand) {
 		log.Fatalf("failed to disconnect")
 	}
 }
