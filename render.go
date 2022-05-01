@@ -39,6 +39,8 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	}
 	defer sdl.Quit()
 
+	_, _ = sdl.ShowCursor(sdl.DISABLE)
+
 	windowWidth := int32(*widthFlag)
 	windowHeight := int32(*heightFlag)
 
