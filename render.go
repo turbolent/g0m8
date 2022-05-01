@@ -14,6 +14,8 @@ var heightFlag = flag.Int("height", 460, "height of the window")
 
 var rectangles = list.New()
 
+const fontScale = 2
+
 const charactersPerRow = 41
 const characterCommandCount = charactersPerRow * 48
 
@@ -78,7 +80,7 @@ func render(commands <-chan Command, inputs chan<- byte) {
 	if err != nil {
 		panic(err)
 	}
-	font, err := ttf.OpenFont("m8stealth57.ttf", 8)
+	font, err := ttf.OpenFont("m8stealth57.ttf", 8*fontScale)
 	if err != nil {
 		panic(err)
 	}
@@ -268,8 +270,8 @@ func drawCharacter(command DrawCharacterCommand, renderer *sdl.Renderer, font *t
 
 	renderRect.X = int32(command.pos.x) * scaleX
 	renderRect.Y = int32(command.pos.y) * scaleY
-	renderRect.W = g.width * scaleX
-	renderRect.H = g.height * scaleY
+	renderRect.W = g.width * scaleX / fontScale
+	renderRect.H = g.height * scaleY / fontScale
 	_ = renderer.Copy(g.texture, nil, &renderRect)
 }
 
