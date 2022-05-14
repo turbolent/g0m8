@@ -13,40 +13,36 @@ import (
 	"os"
 )
 
-const keyLeft = 1 << 7
-const keyUp = 1 << 6
-const keyDown = 1 << 5
-const keySelect = 1 << 4
-const keyStart = 1 << 3
-const keyRight = 1 << 2
-const keyOpt = 1 << 1
-const keyEdit = 1
+const (
+	keyLeft   = 1 << 7
+	keyUp     = 1 << 6
+	keyDown   = 1 << 5
+	keySelect = 1 << 4
+	keyStart  = 1 << 3
+	keyRight  = 1 << 2
+	keyOpt    = 1 << 1
+	keyEdit   = 1
+)
 
-func sendInput(port *os.File, input <-chan byte) {
-	for b := range input {
-		sendKey(port, b)
-	}
-}
+var sendControllerCommand = []byte{'C', 0}
 
-var sendKeyCommand = []byte{'C', 0}
+func sendController(port *os.File, controller byte) {
+	sendControllerCommand[1] = controller
 
-func sendKey(port *os.File, b byte) {
-	sendKeyCommand[1] = b
-
-	n, err := port.Write(sendKeyCommand)
+	n, err := port.Write(sendControllerCommand)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if n != len(sendKeyCommand) {
-		log.Fatalf("failed to write input: %016b\n", b)
+	if n != len(sendControllerCommand) {
+		log.Fatalf("failed to send controller: %016b", controller)
 	}
 }
 
 var enableAndResetDisplayCommand = []byte{'E', 'R'}
 
 func enableAndResetDisplay(port *os.File) {
-	log.Printf("Enabling and resetting display ...\n")
+	log.Println("Enabling and resetting display ...")
 
 	n, err := port.Write(enableAndResetDisplayCommand)
 	if err != nil {
@@ -54,14 +50,14 @@ func enableAndResetDisplay(port *os.File) {
 	}
 
 	if n != len(enableAndResetDisplayCommand) {
-		log.Fatalf("failed to enable and reset display")
+		log.Fatalln("failed to enable and reset display")
 	}
 }
 
 var disconnectCommand = []byte{'D'}
 
 func disconnect(port *os.File) {
-	log.Printf("Disconnecting ...\n")
+	log.Println("Disconnecting ...")
 
 	n, err := port.Write(disconnectCommand)
 	if err != nil {
@@ -69,6 +65,6 @@ func disconnect(port *os.File) {
 	}
 
 	if n != len(disconnectCommand) {
-		log.Fatalf("failed to disconnect")
+		log.Fatalln("failed to disconnect")
 	}
 }

@@ -110,6 +110,24 @@ const drawOscilloscopeWaveformCommandMaxDataLength = 1 + 3 + 320
 
 func (DrawOscilloscopeWaveformCommand) isCommand() {}
 
+func (c DrawOscilloscopeWaveformCommand) Equals(other DrawOscilloscopeWaveformCommand) bool {
+	if other.color != c.color {
+		return false
+	}
+
+	if len(other.waveform) != len(c.waveform) {
+		return false
+	}
+
+	for i, b := range other.waveform {
+		if c.waveform[i] != b {
+			return false
+		}
+	}
+
+	return true
+}
+
 // JoypadKeyPressedStateCommand
 //
 type JoypadKeyPressedStateCommand struct {

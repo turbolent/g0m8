@@ -1,19 +1,17 @@
 package main
 
 import (
-	"encoding/hex"
 	"log"
 	"os"
 )
 
-func read(port *os.File, commands chan<- Command) {
-
-	log.Printf("Reading ...\n")
+func newReader(port *os.File) func(handle func(packet []byte)) {
 
 	buf := make([]byte, 4*1024)
 	readStartIndex := 0
 
-	for {
+	return func(handle func(packet []byte)) {
+
 		// Read raw data from serial port
 
 		n, err := port.Read(buf[readStartIndex:])
@@ -25,27 +23,9 @@ func read(port *os.File, commands chan<- Command) {
 
 		data := buf[:readStartIndex+n]
 
-		packets, remaining, err := decodeSLIP(data)
+		remaining, err := decodeSLIP(data, handle)
 		if err != nil {
 			log.Fatal(err)
-		}
-
-		// Decode the packets as commands
-
-		for _, packet := range packets {
-
-			command, err := decodeCommand(packet)
-			if err != nil {
-				log.Println(err)
-				log.Println("data:", hex.Dump(data))
-				log.Println("packet:", hex.Dump(packet))
-				if _, ok := err.(unknownCommandError); ok {
-					continue
-				}
-				os.Exit(1)
-			}
-
-			commands <- command
 		}
 
 		// There might be an incomplete packet,

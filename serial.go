@@ -39,4 +39,3 @@ func openSerialPort(device string) *os.File {
 
 	return f
 }
-

@@ -9,7 +9,7 @@ const slipEsc = 0xDB
 const slipEscEnd = 0xDC
 const slipEscEsc = 0xDD
 
-func decodeSLIP(data []byte) (packets [][]byte, rest []byte, err error) {
+func decodeSLIP(data []byte, handle func(packet []byte)) (rest []byte, err error) {
 	var packet []byte
 
 	escaped := false
@@ -22,7 +22,7 @@ func decodeSLIP(data []byte) (packets [][]byte, rest []byte, err error) {
 		case slipEnd:
 			lastEndIndex = index + 1
 			if len(packet) > 0 {
-				packets = append(packets, packet)
+				handle(packet)
 				packet = nil
 			}
 			continue
@@ -41,11 +41,11 @@ func decodeSLIP(data []byte) (packets [][]byte, rest []byte, err error) {
 			}
 		default:
 			if escaped {
-				return nil, data, fmt.Errorf("SLIP protocol error")
+				return data, fmt.Errorf("SLIP protocol error")
 			}
 		}
 		packet = append(packet, b)
 	}
 
-	return packets, data[lastEndIndex:], nil
+	return data[lastEndIndex:], nil
 }
