@@ -133,8 +133,7 @@ func (r *sdlRenderer) render(screen *screen) {
 
 	_ = renderer.SetRenderTarget(r.background)
 
-	for e := screen.rectangles.Front(); e != nil; e = e.Next() {
-		command := e.Value.(DrawRectangleCommand)
+	for _, command := range screen.rectangles {
 		r.drawRectangle(command)
 	}
 

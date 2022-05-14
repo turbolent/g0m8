@@ -1,31 +1,18 @@
 package main
 
-import (
-	"container/list"
-)
-
 const charactersPerRow = 41
 const characterCommandCount = charactersPerRow * 48
 
 type screen struct {
 	characters [characterCommandCount]DrawCharacterCommand
-	rectangles *list.List
+	rectangles []DrawRectangleCommand
 	waveform   DrawOscilloscopeWaveformCommand
-}
-
-func newScreen() *screen {
-	return &screen{
-		rectangles: list.New(),
-	}
 }
 
 func (s *screen) update(command Command) bool {
 	switch command := command.(type) {
 	case DrawRectangleCommand:
-		s.rectangles.PushBack(command)
-		if s.rectangles.Len() >= 1024 {
-			s.rectangles.Remove(s.rectangles.Front())
-		}
+		s.rectangles = append(s.rectangles, command)
 		return true
 
 	case DrawCharacterCommand:
@@ -43,4 +30,8 @@ func (s *screen) update(command Command) bool {
 	}
 
 	return false
+}
+
+func (s *screen) prepare() {
+	s.rectangles = s.rectangles[:]
 }

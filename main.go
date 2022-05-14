@@ -28,7 +28,7 @@ func main() {
 	}
 
 	var input input
-	screen := newScreen()
+	var screen screen
 
 	windowWidth := int32(*widthFlag)
 	windowHeight := int32(*heightFlag)
@@ -56,6 +56,8 @@ func main() {
 			return
 		}
 
+		screen.prepare()
+
 		var render bool
 		read(func(packet []byte) {
 			command, err := decodeCommand(packet)
@@ -76,7 +78,7 @@ func main() {
 		})
 
 		if render {
-			renderer.render(screen)
+			renderer.render(&screen)
 		}
 	}
 }
