@@ -5,6 +5,8 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+
+	"github.com/veandco/go-sdl2/sdl"
 )
 
 var deviceFlag = flag.String("device", "", "connect to given device")
@@ -12,6 +14,7 @@ var debugFlag = flag.Bool("debug", true, "enable debug logging")
 var softwareFlag = flag.Bool("software", true, "use software rendering")
 var widthFlag = flag.Int("width", 640, "width of the window")
 var heightFlag = flag.Int("height", 460, "height of the window")
+var fpsFlag = flag.Int("fps", 30, "target FPS")
 
 func main() {
 	flag.Parse()
@@ -50,6 +53,12 @@ func main() {
 		sendController(port, controller)
 	}
 
+	fps := *fpsFlag
+
+	var lastRender uint64
+
+	var skippedRender bool
+
 	for {
 		if !input.handle(renderer.toggleFullscreen, sendController) {
 			log.Println("Quit")
@@ -76,9 +85,21 @@ func main() {
 			}
 		})
 
-		if render {
-			renderer.render(&screen)
-			screen.clean()
+		if skippedRender || render {
+			skippedRender = false
+
+			now := sdl.GetPerformanceCounter()
+
+			diff := float64(now-lastRender) / float64(sdl.GetPerformanceFrequency())
+
+			if diff < (1.0 / float64(fps)) {
+				skippedRender = true
+			} else {
+				renderer.render(&screen)
+				screen.clean()
+
+				lastRender = now
+			}
 		}
 	}
 }
