@@ -42,9 +42,9 @@ func (i *input) handle(
 			key = keyUp
 		case sdl.K_DOWN, sdl.K_KP_2:
 			key = keyDown
-		case sdl.K_x, sdl.K_m:
+		case sdl.K_x, sdl.K_m, sdl.K_LCTRL, sdl.K_RCTRL:
 			key = keyEdit
-		case sdl.K_z, sdl.K_n:
+		case sdl.K_z, sdl.K_n, sdl.K_LALT, sdl.K_RALT:
 			key = keyOpt
 		case sdl.K_SPACE:
 			key = keyStart
