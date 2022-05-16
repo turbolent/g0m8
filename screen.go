@@ -32,6 +32,6 @@ func (s *screen) update(command Command) bool {
 	return false
 }
 
-func (s *screen) prepare() {
+func (s *screen) clean() {
 	s.rectangles = s.rectangles[:]
 }

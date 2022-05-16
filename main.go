@@ -56,9 +56,8 @@ func main() {
 			return
 		}
 
-		screen.prepare()
-
 		var render bool
+
 		read(func(packet []byte) {
 			command, err := decodeCommand(packet)
 			if err != nil {
@@ -79,6 +78,7 @@ func main() {
 
 		if render {
 			renderer.render(&screen)
+			screen.clean()
 		}
 	}
 }
