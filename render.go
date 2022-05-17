@@ -6,16 +6,16 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-const logicalWidth = 320
-const logicalHeight = 240
+const screenWidth = 320
+const screenHeight = 240
 
 type sdlRenderer struct {
-	backgroundColor     Color
-	fullscreen          bool
-	window              *sdl.Window
-	renderer            *sdl.Renderer
-	font                *sdl.Texture
-	lastWaveformCommand DrawOscilloscopeWaveformCommand
+	backgroundColor Color
+	fullscreen      bool
+	window          *sdl.Window
+	renderer        *sdl.Renderer
+	font            *sdl.Texture
+	waveform        [screenWidth]sdl.Point
 }
 
 func newSDLRenderer(width, height int32, software bool) *sdlRenderer {
@@ -48,7 +48,7 @@ func newSDLRenderer(width, height int32, software bool) *sdlRenderer {
 		panic(err)
 	}
 
-	err = r.renderer.SetLogicalSize(logicalWidth, logicalHeight)
+	err = r.renderer.SetLogicalSize(screenWidth, screenHeight)
 	if err != nil {
 		panic(err)
 	}
@@ -98,7 +98,7 @@ func (r *sdlRenderer) quit() {
 	sdl.Quit()
 }
 
-func (r *sdlRenderer) draw(command Command) bool {
+func (r *sdlRenderer) draw(command Command) {
 	switch command := command.(type) {
 	case DrawRectangleCommand:
 		r.drawRectangle(command)
@@ -107,14 +107,8 @@ func (r *sdlRenderer) draw(command Command) bool {
 		r.drawCharacter(command)
 
 	case DrawOscilloscopeWaveformCommand:
-		if command.Equals(r.lastWaveformCommand) {
-			return false
-		}
 		r.drawWaveform(command)
-		r.lastWaveformCommand = command
 	}
-
-	return true
 }
 
 func (r *sdlRenderer) toggleFullscreen() {
@@ -184,8 +178,8 @@ func (r *sdlRenderer) drawRectangle(command DrawRectangleCommand) {
 
 	if command.pos.x == 0 &&
 		command.pos.y == 0 &&
-		command.size.width == logicalWidth &&
-		command.size.height == logicalHeight {
+		command.size.width == screenWidth &&
+		command.size.height == screenHeight {
 
 		r.backgroundColor.r = command.color.r
 		r.backgroundColor.g = command.color.g
@@ -215,8 +209,8 @@ func (r *sdlRenderer) drawWaveform(command DrawOscilloscopeWaveformCommand) {
 	renderRect := sdl.Rect{
 		X: 0,
 		Y: 0,
-		W: logicalWidth,
-		H: logicalHeight / 10,
+		W: screenWidth,
+		H: screenHeight / 10,
 	}
 
 	_ = renderer.SetDrawColor(
@@ -228,6 +222,10 @@ func (r *sdlRenderer) drawWaveform(command DrawOscilloscopeWaveformCommand) {
 
 	_ = renderer.FillRect(&renderRect)
 
+	if len(command.waveform) == 0 {
+		return
+	}
+
 	_ = renderer.SetDrawColor(
 		command.color.r,
 		command.color.g,
@@ -235,13 +233,10 @@ func (r *sdlRenderer) drawWaveform(command DrawOscilloscopeWaveformCommand) {
 		math.MaxUint8,
 	)
 
-	for x, y := range command.waveform {
-
-		renderRect.X = int32(x)
-		renderRect.Y = int32(y)
-		renderRect.W = 1
-		renderRect.H = 1
-
-		_ = renderer.FillRect(&renderRect)
+	for i, y := range command.waveform {
+		r.waveform[i].X = int32(i)
+		r.waveform[i].Y = int32(y)
 	}
+
+	_ = renderer.DrawPoints(r.waveform[:])
 }

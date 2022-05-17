@@ -81,9 +81,9 @@ func main() {
 				}
 			}
 
-			if renderer.draw(command) {
-				render = true
-			}
+			renderer.draw(command)
+
+			render = true
 		})
 
 		if skippedRender || render {

@@ -106,27 +106,8 @@ type DrawOscilloscopeWaveformCommand struct {
 
 const drawOscilloscopeWaveformCommand = 0xFC
 const drawOscilloscopeWaveformCommandMinDataLength = 1 + 3
-const drawOscilloscopeWaveformCommandMaxDataLength = 1 + 3 + 320
 
 func (DrawOscilloscopeWaveformCommand) isCommand() {}
-
-func (c DrawOscilloscopeWaveformCommand) Equals(other DrawOscilloscopeWaveformCommand) bool {
-	if other.color != c.color {
-		return false
-	}
-
-	if len(other.waveform) != len(c.waveform) {
-		return false
-	}
-
-	for i, b := range other.waveform {
-		if c.waveform[i] != b {
-			return false
-		}
-	}
-
-	return true
-}
 
 // JoypadKeyPressedStateCommand
 //
@@ -196,10 +177,12 @@ func decodeCommand(data []byte) (Command, error) {
 			)
 		}
 
-		if length > drawOscilloscopeWaveformCommandMaxDataLength {
+		waveformLength := length - drawOscilloscopeWaveformCommandMinDataLength
+
+		if waveformLength != 0 && waveformLength != screenWidth {
 			return nil, fmt.Errorf(
-				"invalid draw oscilloscope waveform packet: expected max length %d, got %d",
-				drawOscilloscopeWaveformCommandMaxDataLength,
+				"invalid draw oscilloscope waveform packet: expected length == 0 || length == %d, got %d",
+				screenWidth,
 				length,
 			)
 		}
