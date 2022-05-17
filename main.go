@@ -13,7 +13,7 @@ var deviceFlag = flag.String("device", "", "connect to given device")
 var debugFlag = flag.Bool("debug", true, "enable debug logging")
 var softwareFlag = flag.Bool("software", true, "use software rendering")
 var widthFlag = flag.Int("width", 640, "width of the window")
-var heightFlag = flag.Int("height", 460, "height of the window")
+var heightFlag = flag.Int("height", 480, "height of the window")
 var fpsFlag = flag.Int("fps", 30, "target FPS")
 
 func main() {
@@ -31,7 +31,6 @@ func main() {
 	}
 
 	var input input
-	var screen screen
 
 	windowWidth := int32(*widthFlag)
 	windowHeight := int32(*heightFlag)
@@ -56,11 +55,13 @@ func main() {
 	fps := *fpsFlag
 
 	var lastRender uint64
-
 	var skippedRender bool
 
 	for {
-		if !input.handle(renderer.toggleFullscreen, sendController) {
+		if !input.handle(func() {
+			renderer.toggleFullscreen()
+			enableAndResetDisplay(port)
+		}, sendController) {
 			log.Println("Quit")
 			return
 		}
@@ -80,7 +81,7 @@ func main() {
 				}
 			}
 
-			if screen.update(command) {
+			if renderer.draw(command) {
 				render = true
 			}
 		})
@@ -95,8 +96,7 @@ func main() {
 			if diff < (1.0 / float64(fps)) {
 				skippedRender = true
 			} else {
-				renderer.render(&screen)
-				screen.clean()
+				renderer.render()
 
 				lastRender = now
 			}

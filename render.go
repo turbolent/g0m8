@@ -1,42 +1,35 @@
 package main
 
 import (
+	"math"
+
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
-const fontScale = 2
+const logicalWidth = 320
+const logicalHeight = 240
 
-type glyphCacheKey struct {
-	c     byte
-	color Color
+type sdlGlyphCacheKey struct {
+	c  byte
+	fg Color
+	bg Color
 }
 
-type glyph struct {
+type sdlGlyph struct {
 	texture *sdl.Texture
 	width   int32
 	height  int32
 }
 
-func createTexture(renderer *sdl.Renderer, width int32, height int32) (*sdl.Texture, error) {
-	return renderer.CreateTexture(
-		sdl.PIXELFORMAT_ARGB8888,
-		sdl.TEXTUREACCESS_TARGET,
-		width,
-		height,
-	)
-}
-
 type sdlRenderer struct {
-	scaleX     int32
-	scaleY     int32
-	fullscreen bool
-	window     *sdl.Window
-	renderer   *sdl.Renderer
-	background *sdl.Texture
-	overlay    *sdl.Texture
-	font       *ttf.Font
-	glyphCache map[glyphCacheKey]glyph
+	backgroundColor     Color
+	fullscreen          bool
+	window              *sdl.Window
+	renderer            *sdl.Renderer
+	font                *ttf.Font
+	glyphCache          map[sdlGlyphCacheKey]sdlGlyph
+	lastWaveformCommand DrawOscilloscopeWaveformCommand
 }
 
 func newSDLRenderer(width, height int32, software bool) *sdlRenderer {
@@ -48,9 +41,6 @@ func newSDLRenderer(width, height int32, software bool) *sdlRenderer {
 	}
 
 	_, _ = sdl.ShowCursor(sdl.DISABLE)
-
-	r.scaleX = width / 320
-	r.scaleY = height / 230
 
 	var err error
 	r.window, err = sdl.CreateWindow(
@@ -71,36 +61,27 @@ func newSDLRenderer(width, height int32, software bool) *sdlRenderer {
 	if err != nil {
 		panic(err)
 	}
-	_ = r.renderer.SetDrawBlendMode(sdl.BLENDMODE_BLEND)
 
-	r.background, err = createTexture(r.renderer, width, height)
+	err = r.renderer.SetLogicalSize(logicalWidth, logicalHeight)
 	if err != nil {
 		panic(err)
 	}
-
-	r.overlay, err = createTexture(r.renderer, width, height)
-	if err != nil {
-		panic(err)
-	}
-	_ = r.overlay.SetBlendMode(sdl.BLENDMODE_BLEND)
 
 	err = ttf.Init()
 	if err != nil {
 		panic(err)
 	}
-	r.font, err = ttf.OpenFont("m8stealth57.ttf", 8*fontScale)
+	r.font, err = ttf.OpenFont("m8stealth57.ttf", 8)
 	if err != nil {
 		panic(err)
 	}
 
-	r.glyphCache = make(map[glyphCacheKey]glyph, characterCommandCount)
+	r.glyphCache = make(map[sdlGlyphCacheKey]sdlGlyph)
 
 	return r
 }
 
 func (r *sdlRenderer) quit() {
-	_ = r.overlay.Destroy()
-	_ = r.background.Destroy()
 	_ = r.renderer.Destroy()
 	_ = r.window.Destroy()
 	r.font.Close()
@@ -112,74 +93,79 @@ func (r *sdlRenderer) quit() {
 	sdl.Quit()
 }
 
+func (r *sdlRenderer) draw(command Command) bool {
+	switch command := command.(type) {
+	case DrawRectangleCommand:
+		r.drawRectangle(command)
+
+	case DrawCharacterCommand:
+		r.drawCharacter(command)
+
+	case DrawOscilloscopeWaveformCommand:
+		if command.Equals(r.lastWaveformCommand) {
+			return false
+		}
+		r.drawWaveform(command)
+		r.lastWaveformCommand = command
+	}
+
+	return true
+}
+
 func (r *sdlRenderer) toggleFullscreen() {
 	var flags uint32
 	if !r.fullscreen {
-		flags = sdl.WINDOW_FULLSCREEN_DESKTOP
+		flags = sdl.WINDOW_FULLSCREEN
 	}
 	_ = r.window.SetFullscreen(flags)
 	r.fullscreen = !r.fullscreen
 }
 
-func (r *sdlRenderer) render(screen *screen) {
-	renderer := r.renderer
-
-	_ = renderer.SetRenderTarget(nil)
-
-	_ = renderer.SetDrawColor(0, 0, 0, 255)
-	_ = renderer.Clear()
-
-	// Draw rectangles
-
-	_ = renderer.SetRenderTarget(r.background)
-
-	for _, command := range screen.rectangles {
-		r.drawRectangle(command)
-	}
-
-	_ = renderer.SetRenderTarget(nil)
-	_ = renderer.Copy(r.background, nil, nil)
-
-	// Draw overlay: waveform and characters
-
-	_ = renderer.SetRenderTarget(r.overlay)
-	_ = renderer.SetDrawColor(0, 0, 0, 0)
-	_ = renderer.Clear()
-
-	r.drawWaveform(screen.waveform)
-
-	// Draw characters
-
-	for _, command := range screen.characters {
-		if command.c == 0 {
-			continue
-		}
-		r.drawCharacter(command)
-	}
-
-	_ = renderer.SetRenderTarget(nil)
-	_ = renderer.Copy(r.overlay, nil, nil)
-
-	renderer.Present()
+func (r *sdlRenderer) render() {
+	r.renderer.Present()
 }
 
 func (r *sdlRenderer) drawCharacter(command DrawCharacterCommand) {
 	renderer := r.renderer
 
-	cacheKey := glyphCacheKey{
-		c:     command.c,
-		color: command.foreground,
+	cacheKey := sdlGlyphCacheKey{
+		c:  command.c,
+		fg: command.foreground,
+		bg: command.background,
 	}
 	g := r.glyphCache[cacheKey]
 	if g.texture == nil {
-		glyphSurface, err := r.font.RenderUTF8Solid(
-			string(command.c),
-			sdl.Color{
-				R: command.foreground.r,
-				G: command.foreground.g,
-				B: command.foreground.b,
-			},
-		)
+		var glyphSurface *sdl.Surface
+		var err error
+
+		if command.foreground == command.background {
+			glyphSurface, err = r.font.RenderGlyphSolid(
+				rune(command.c),
+				sdl.Color{
+					R: command.foreground.r,
+					G: command.foreground.g,
+					B: command.foreground.b,
+					A: math.MaxUint8,
+				},
+			)
+		} else {
+			glyphSurface, err = r.font.RenderUTF8Shaded(
+				string(command.c),
+				sdl.Color{
+					R: command.foreground.r,
+					G: command.foreground.g,
+					B: command.foreground.b,
+					A: math.MaxUint8,
+				},
+				sdl.Color{
+					R: command.background.r,
+					G: command.background.g,
+					B: command.background.b,
+					A: math.MaxUint8,
+				},
+			)
+		}
+
 		if err != nil {
 			panic(err)
 		}
@@ -191,14 +177,11 @@ func (r *sdlRenderer) drawCharacter(command DrawCharacterCommand) {
 		glyphSurface.Free()
 	}
 
-	scaleX := r.scaleX
-	scaleY := r.scaleY
-
 	var renderRect = sdl.Rect{
-		X: int32(command.pos.x) * scaleX,
-		Y: int32(command.pos.y) * scaleY,
-		W: g.width * scaleX / fontScale,
-		H: g.height * scaleY / fontScale,
+		X: int32(command.pos.x),
+		Y: int32(command.pos.y) + 3,
+		W: g.width,
+		H: g.height,
 	}
 
 	_ = renderer.Copy(g.texture, nil, &renderRect)
@@ -207,6 +190,16 @@ func (r *sdlRenderer) drawCharacter(command DrawCharacterCommand) {
 func (r *sdlRenderer) drawRectangle(command DrawRectangleCommand) {
 	renderer := r.renderer
 
+	if command.pos.x == 0 &&
+		command.pos.y == 0 &&
+		command.size.width == logicalWidth &&
+		command.size.height == logicalHeight {
+
+		r.backgroundColor.r = command.color.r
+		r.backgroundColor.g = command.color.g
+		r.backgroundColor.b = command.color.b
+	}
+
 	_ = renderer.SetDrawColor(
 		command.color.r,
 		command.color.g,
@@ -214,14 +207,11 @@ func (r *sdlRenderer) drawRectangle(command DrawRectangleCommand) {
 		0xff,
 	)
 
-	scaleX := r.scaleX
-	scaleY := r.scaleY
-
 	var renderRect = sdl.Rect{
-		X: int32(command.pos.x) * scaleX,
-		Y: int32(command.pos.y)*scaleY - scaleY*3,
-		W: int32(command.size.width) * scaleX,
-		H: int32(command.size.height) * scaleY,
+		X: int32(command.pos.x),
+		Y: int32(command.pos.y),
+		W: int32(command.size.width),
+		H: int32(command.size.height),
 	}
 
 	_ = renderer.FillRect(&renderRect)
@@ -230,24 +220,35 @@ func (r *sdlRenderer) drawRectangle(command DrawRectangleCommand) {
 func (r *sdlRenderer) drawWaveform(command DrawOscilloscopeWaveformCommand) {
 	renderer := r.renderer
 
+	renderRect := sdl.Rect{
+		X: 0,
+		Y: 0,
+		W: logicalWidth,
+		H: logicalHeight / 10,
+	}
+
+	_ = renderer.SetDrawColor(
+		r.backgroundColor.r,
+		r.backgroundColor.g,
+		r.backgroundColor.b,
+		math.MaxUint8,
+	)
+
+	_ = renderer.FillRect(&renderRect)
+
 	_ = renderer.SetDrawColor(
 		command.color.r,
 		command.color.g,
 		command.color.b,
-		0xff,
+		math.MaxUint8,
 	)
-
-	scaleX := r.scaleX
-	scaleY := r.scaleY
-
-	var renderRect sdl.Rect
 
 	for x, y := range command.waveform {
 
-		renderRect.X = int32(x) * scaleX
-		renderRect.Y = int32(y) * scaleY
-		renderRect.W = scaleX
-		renderRect.H = scaleY
+		renderRect.X = int32(x)
+		renderRect.Y = int32(y)
+		renderRect.W = 1
+		renderRect.H = 1
 
 		_ = renderer.FillRect(&renderRect)
 	}
