@@ -4,31 +4,17 @@ import (
 	"math"
 
 	"github.com/veandco/go-sdl2/sdl"
-	"github.com/veandco/go-sdl2/ttf"
 )
 
 const logicalWidth = 320
 const logicalHeight = 240
-
-type sdlGlyphCacheKey struct {
-	c  byte
-	fg Color
-	bg Color
-}
-
-type sdlGlyph struct {
-	texture *sdl.Texture
-	width   int32
-	height  int32
-}
 
 type sdlRenderer struct {
 	backgroundColor     Color
 	fullscreen          bool
 	window              *sdl.Window
 	renderer            *sdl.Renderer
-	font                *ttf.Font
-	glyphCache          map[sdlGlyphCacheKey]sdlGlyph
+	font                *sdl.Texture
 	lastWaveformCommand DrawOscilloscopeWaveformCommand
 }
 
@@ -67,29 +53,48 @@ func newSDLRenderer(width, height int32, software bool) *sdlRenderer {
 		panic(err)
 	}
 
-	err = ttf.Init()
-	if err != nil {
-		panic(err)
-	}
-	r.font, err = ttf.OpenFont("m8stealth57.ttf", 8)
-	if err != nil {
-		panic(err)
-	}
-
-	r.glyphCache = make(map[sdlGlyphCacheKey]sdlGlyph)
+	r.initFont()
 
 	return r
 }
 
-func (r *sdlRenderer) quit() {
-	_ = r.renderer.Destroy()
-	_ = r.window.Destroy()
-	r.font.Close()
+func (r *sdlRenderer) initFont() {
+	surface, err := sdl.CreateRGBSurfaceWithFormat(0, fontWidth, fontHeight, 32, sdl.PIXELFORMAT_ARGB8888)
+	defer surface.Free()
 
-	for _, glyph := range r.glyphCache {
-		_ = glyph.texture.Destroy()
+	pixels := surface.Pixels()
+
+	l := int(surface.W*surface.H) / 8
+	for i := 0; i < l; i++ {
+		p := fontData[i]
+		for j := 0; j < 8; j++ {
+			var c byte
+			if p&(1<<j) == 0 {
+				c = math.MaxUint8
+			}
+
+			// Set all 4 color components (ARGB)
+			for k := 0; k < 4; k++ {
+				pixels[(i*8+j)*4+k] = c
+			}
+		}
 	}
 
+	r.font, err = r.renderer.CreateTextureFromSurface(surface)
+	if err != nil {
+		panic(err)
+	}
+
+	err = r.font.SetBlendMode(sdl.BLENDMODE_BLEND)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (r *sdlRenderer) quit() {
+	_ = r.font.Destroy()
+	_ = r.renderer.Destroy()
+	_ = r.window.Destroy()
 	sdl.Quit()
 }
 
@@ -128,63 +133,50 @@ func (r *sdlRenderer) render() {
 func (r *sdlRenderer) drawCharacter(command DrawCharacterCommand) {
 	renderer := r.renderer
 
-	cacheKey := sdlGlyphCacheKey{
-		c:  command.c,
-		fg: command.foreground,
-		bg: command.background,
+	x := int32(command.pos.x)
+	y := int32(command.pos.y)
+
+	if command.background != command.foreground {
+		_ = renderer.SetDrawColor(
+			command.background.r,
+			command.background.g,
+			command.background.b,
+			math.MaxUint8,
+		)
+
+		var renderRect = sdl.Rect{
+			X: x - 1,
+			Y: y + 2,
+			W: fontCharWidth - 1,
+			H: fontCharHeight + 1,
+		}
+		_ = renderer.FillRect(&renderRect)
 	}
-	g := r.glyphCache[cacheKey]
-	if g.texture == nil {
-		var glyphSurface *sdl.Surface
-		var err error
 
-		if command.foreground == command.background {
-			glyphSurface, err = r.font.RenderGlyphSolid(
-				rune(command.c),
-				sdl.Color{
-					R: command.foreground.r,
-					G: command.foreground.g,
-					B: command.foreground.b,
-					A: math.MaxUint8,
-				},
-			)
-		} else {
-			glyphSurface, err = r.font.RenderUTF8Shaded(
-				string(command.c),
-				sdl.Color{
-					R: command.foreground.r,
-					G: command.foreground.g,
-					B: command.foreground.b,
-					A: math.MaxUint8,
-				},
-				sdl.Color{
-					R: command.background.r,
-					G: command.background.g,
-					B: command.background.b,
-					A: math.MaxUint8,
-				},
-			)
-		}
+	_ = r.font.SetColorMod(
+		command.foreground.r,
+		command.foreground.g,
+		command.foreground.b,
+	)
 
-		if err != nil {
-			panic(err)
-		}
-		texture, _ := renderer.CreateTextureFromSurface(glyphSurface)
-		g.texture = texture
-		g.width = glyphSurface.W
-		g.height = glyphSurface.H
-		r.glyphCache[cacheKey] = g
-		glyphSurface.Free()
+	row := command.c / fontCharsByRow
+	column := command.c % fontCharsByRow
+
+	var sourceRect = sdl.Rect{
+		X: int32(column * 8),
+		Y: int32(row * 8),
+		W: fontCharWidth,
+		H: fontCharHeight,
 	}
 
 	var renderRect = sdl.Rect{
-		X: int32(command.pos.x),
-		Y: int32(command.pos.y) + 3,
-		W: g.width,
-		H: g.height,
+		X: x,
+		Y: y + 3,
+		W: fontCharWidth,
+		H: fontCharHeight,
 	}
 
-	_ = renderer.Copy(g.texture, nil, &renderRect)
+	_ = renderer.Copy(r.font, &sourceRect, &renderRect)
 }
 
 func (r *sdlRenderer) drawRectangle(command DrawRectangleCommand) {
